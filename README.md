@@ -7,7 +7,7 @@ See `demo` folder for details.
 ![](demo/demo.png)
 
 ### TODO
-- [ ] More callbacks
+- [X] More callbacks (mouse, keyboard, etc.)
 - [ ] Camera
 - [ ] UI
 - [ ] Textures

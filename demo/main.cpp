@@ -1,5 +1,7 @@
+#include "Camera.h"
 #include "Context.h"
 #include "Shader.h"
+#include "UI.h"
 #include "VertexBuffer.h"
 
 #include <glm/gtc/matrix_transform.hpp>
@@ -13,10 +15,12 @@ int main(int argc, char *argv[])
 
     Context context;
 
-    context.Init("GLReady Demo", 1200, 960);
+    context.Init("GLReady Demo", 1280, 960);
     context.EnableVSync();
     context.EnableDepthTest();
     context.SetClearColor(0xffffff);
+
+    ui::SetFont("c:/windows/fonts/consola.ttf", 20);
 
     float vertices[] = {-0.5f, -0.5f, -0.5f, 0.0f, 0.0f, 0.5f,  -0.5f, -0.5f, 1.0f, 0.0f,
                         0.5f,  0.5f,  -0.5f, 1.0f, 1.0f, 0.5f,  0.5f,  -0.5f, 1.0f, 1.0f,
@@ -52,32 +56,53 @@ int main(int argc, char *argv[])
     shaderInit._fragmentShaderPath = "shaders/frag.fs";
     Shader shader(shaderInit);
 
-    glm::mat4 view(1.0f), proj(1.0f);
-    view = glm::lookAt(glm::vec3{2.0f, 2.0f, 2.0f}, {0.0f, 0.0f, 0.0f}, {0.0f, 1.0f, 0.0f});
-    proj = glm::perspective(45.0f, 1.0f * 1200 / 960, 0.1f, 100.0f);
+    Camera camera;
+    camera.Perspective(45.0f, 1.0f * 1200 / 960, 0.1f, 100.0f);
+    camera.SetCameraPos({2.0f, 5.0f, 5.0f});
+    camera.LookAt({0.0f, 0.0f, 0.0f});
+    camera.Update();
 
     shader.Activate();
-    shader.SetUniform("view", view);
-    shader.SetUniform("proj", proj);
+    shader.SetUniform("view", camera.GetViewMatrix());
+    shader.SetUniform("proj", camera.GetProjectionMatrix());
+
+    glm::vec3 scale(1.0f, 1.0f, 1.0f);
+    glm::vec3 a(0.5f, 1.0f, 0.0f), b(0.0f, 0.5f, 1.0f);
 
     context.Run([&](float dt) {
         glm::mat4 model(1.0f);
-        model = glm::rotate(model, glm::radians(90 * dt), {1.0f, 0.0f, 0.0f});
-        model = glm::rotate(model, glm::radians(45 * dt), {0.0f, 1.0f, 0.0f});
-        model = glm::rotate(model, glm::radians(25 * dt), {0.0f, 0.0f, 1.0f});
+        model = glm::scale(model, scale);
 
-        shader.SetUniform("model", model);
         shader.Activate();
 
-        glm::vec3 a(0.5f, 1.0f, 0.0f), b(0.0f, 0.5f, 1.0f);
-        float t = 0.0f;
-        for (int i = 0; i < 6; i++)
+        for (int x = -1; x <= 1; x++)
         {
-            shader.SetUniform("color", a * (1 - t) + b * t);
-            t += 1 / 6.0f;
+            for (int y = -1; y <= 1; y++)
+            {
+                for (int z = -1; z <= 1; z++)
+                {
+                    float t = 0.0f;
+                    for (int i = 0; i < 6; i++)
+                    {
+                        glm::vec3 pos(x, y, z);
 
-            cube.DrawTriangles(6 * i, 6);
+                        shader.SetUniform("model", glm::translate(model, pos));
+                        shader.SetUniform("color", a * (1 - t) + b * t);
+                        t += 1 / 6.0f;
+
+                        cube.DrawTriangles(6 * i, 6);
+                    }
+                }
+            }
         }
+
+        ImGui::Begin("object property");
+        ImGui::SeparatorText("Transform");
+        ImGui::InputFloat3("scale", &scale.x);
+        ImGui::SeparatorText("Shading");
+        ImGui::ColorEdit3("Interp Color A", &a.x);
+        ImGui::ColorEdit3("Interp Color B", &b.x);
+        ImGui::End();
     });
 
     context.Shutdown();

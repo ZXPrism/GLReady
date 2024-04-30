@@ -15,6 +15,16 @@ namespace GLReady {
 
     void Context::Init(const std::string &windowTitle, int windowWidth, int windowHeight)
     {
+        InitGLFW(windowTitle, windowWidth, windowHeight);
+        InitGLAD(windowWidth, windowHeight);
+        InitCallbacks();
+        InitImGui();
+
+        RegisterOnWindowSizeFunc([](int width, int height) { glViewport(0, 0, width, height); });
+    }
+
+    void Context::InitGLFW(const std::string &windowTitle, int windowWidth, int windowHeight)
+    {
         glfwInit();
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
@@ -23,23 +33,74 @@ namespace GLReady {
         _windowHandle =
             glfwCreateWindow(windowWidth, windowHeight, windowTitle.c_str(), nullptr, nullptr);
         glfwMakeContextCurrent(_windowHandle);
-        glfwSetWindowUserPointer(_windowHandle, this);
-        glfwSetWindowSizeCallback(_windowHandle, [](GLFWwindow *window, int width, int height) {
-            static_cast<Context *>(glfwGetWindowUserPointer(window))
-                ->Callback_WindowSize(width, height);
-        });
+        auto vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
+        glfwSetWindowPos(_windowHandle, (vidmode->width - windowWidth) / 2,
+                         (vidmode->height - windowHeight) / 2);
+    }
 
+    void Context::InitGLAD(int windowWidth, int windowHeight)
+    {
         gladLoadGL();
         glEnable(GL_MULTISAMPLE);
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
         glViewport(0, 0, windowWidth, windowHeight);
         _clearMask |= GL_COLOR_BUFFER_BIT;
+    }
 
+    void Context::InitImGui()
+    {
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGui_ImplGlfw_InitForOpenGL(_windowHandle, true);
         ImGui_ImplOpenGL3_Init("#version 450");
         ImGui::StyleColorsDark();
+
+        auto &style = ImGui::GetStyle();
+        auto &colors = style.Colors;
+
+        colors[ImGuiCol_TitleBg] = {0.113f, 0.113f, 0.113f, 1.0f};
+        colors[ImGuiCol_TitleBgActive] = {0.187f, 0.187f, 0.187f, 1.0f};
+
+        colors[ImGuiCol_Tab] = {0.113f, 0.113f, 0.113f, 1.0f};
+        colors[ImGuiCol_TabUnfocusedActive] = {0.113f, 0.113f, 0.113f, 1.0f};
+        colors[ImGuiCol_TabActive] = {0.5f, 0.5f, 0.5f, 1.0f};
+        colors[ImGuiCol_TabHovered] = {0.3f, 0.3f, 0.3f, 1.0f};
+
+        colors[ImGuiCol_HeaderHovered] = {0.3f, 0.3f, 0.3f, 1.0f};
+
+        colors[ImGuiCol_FrameBg] = {0.3f, 0.3f, 0.3f, 1.0f};
+
+        style.WindowPadding = {8, 10};
+        style.FramePadding = {8, 8};
+        style.ItemSpacing = {8, 8};
+        style.ItemInnerSpacing = {8, 8};
+        style.ScrollbarSize = 16;
+        style.FrameRounding = 4;
+        style.WindowRounding = 5;
+    }
+
+    void Context::InitCallbacks()
+    {
+        glfwSetWindowUserPointer(_windowHandle, this);
+
+        glfwSetCursorPosCallback(_windowHandle, [](GLFWwindow *window, double xPos, double yPos) {
+            ((Context *)glfwGetWindowUserPointer(window))->OnCursorPos(xPos, yPos);
+        });
+        glfwSetKeyCallback(
+            _windowHandle, [](GLFWwindow *window, int key, int scanCode, int action, int mods) {
+                ((Context *)glfwGetWindowUserPointer(window))->OnKey(key, scanCode, action, mods);
+            });
+        glfwSetMouseButtonCallback(
+            _windowHandle, [](GLFWwindow *window, int button, int action, int mods) {
+                ((Context *)glfwGetWindowUserPointer(window))->OnMouseButton(button, action, mods);
+            });
+        glfwSetScrollCallback(
+            _windowHandle, [](GLFWwindow *window, double xOffset, double yOffset) {
+                ((Context *)glfwGetWindowUserPointer(window))->OnScroll(xOffset, yOffset);
+            });
+        glfwSetWindowSizeCallback(_windowHandle, [](GLFWwindow *window, int width, int height) {
+            ((Context *)glfwGetWindowUserPointer(window))->OnWindowSize(width, height);
+        });
     }
 
     void Context::Run(const std::function<void(float)> &callback)
@@ -78,11 +139,6 @@ namespace GLReady {
         glfwTerminate();
     }
 
-    void Context::Callback_WindowSize(int width, int height)
-    {
-        glViewport(0, 0, width, height);
-    }
-
     void Context::EnableVSync()
     {
         glfwSwapInterval(1);
@@ -113,6 +169,62 @@ namespace GLReady {
     {
         int r = rgb >> 16, g = (rgb >> 8) & 0xff, b = rgb & 0xff;
         glClearColor(r / 255.0f, g / 255.0f, b / 255.0f, 1.0f);
+    }
+
+    void Context::RegisterOnCursorPosFunc(OnCursorPosFunc func)
+    {
+        _onCursorPosVec.push_back(func);
+    }
+
+    void Context::RegisterOnKeyFunc(OnKeyFunc func)
+    {
+        _onKeyVec.push_back(func);
+    }
+
+    void Context::RegisterOnMouseButtonFunc(OnMouseButtonFunc func)
+    {
+        _onMouseButtonVec.push_back(func);
+    }
+
+    void Context::RegisterOnScrollFunc(OnScrollFunc func)
+    {
+        _onScrollVec.push_back(func);
+    }
+
+    void Context::RegisterOnWindowSizeFunc(OnWindowSizeFunc func)
+    {
+        _onWindowSizeVec.push_back(func);
+    }
+
+    void Context::OnCursorPos(double xPos, double yPos)
+    {
+        for (auto &fn : _onCursorPosVec)
+            fn(xPos, yPos);
+    }
+
+    void Context::OnKey(int key, int scanCode, int action, int mods)
+    {
+        for (auto &fn : _onKeyVec)
+            fn(key, scanCode, action, mods);
+    }
+
+    void Context::OnMouseButton(int button, int action, int mods)
+    {
+        for (auto &fn : _onMouseButtonVec)
+            fn(button, action, mods);
+        ;
+    }
+
+    void Context::OnScroll(double xOffset, double yOffset)
+    {
+        for (auto &fn : _onScrollVec)
+            fn(xOffset, yOffset);
+    }
+
+    void Context::OnWindowSize(int width, int height)
+    {
+        for (auto &fn : _onWindowSizeVec)
+            fn(width, height);
     }
 
 } // namespace GLReady
