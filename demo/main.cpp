@@ -13,12 +13,10 @@ int main(int argc, char *argv[])
 {
     using namespace GLReady;
 
-    Context context;
-
-    context.Init("GLReady Demo", 1280, 960);
-    context.EnableVSync();
-    context.EnableDepthTest();
-    context.SetClearColor(0xffffff);
+    gContext.Init("GLReady Demo", 1280, 960);
+    gContext.EnableVSync();
+    gContext.EnableDepthTest();
+    gContext.SetClearColor(0xffffff);
 
     ui::SetFont("c:/windows/fonts/consola.ttf", 20);
 
@@ -58,18 +56,18 @@ int main(int argc, char *argv[])
 
     Camera camera;
     camera.Perspective(45.0f, 1.0f * 1200 / 960, 0.1f, 100.0f);
-    camera.SetCameraPos({2.0f, 5.0f, 5.0f});
-    camera.LookAt({0.0f, 0.0f, 0.0f});
-    camera.Update();
+    camera.SetCameraPos({2.0f, 2.0f, 5.0f});
 
     shader.Activate();
-    shader.SetUniform("view", camera.GetViewMatrix());
     shader.SetUniform("proj", camera.GetProjectionMatrix());
 
     glm::vec3 scale(1.0f, 1.0f, 1.0f);
     glm::vec3 a(0.5f, 1.0f, 0.0f), b(0.0f, 0.5f, 1.0f);
 
-    context.Run([&](float dt) {
+    gContext.Run([&](float dt) {
+        camera.Update(dt);
+        shader.SetUniform("view", camera.GetViewMatrix());
+
         glm::mat4 model(1.0f);
         model = glm::scale(model, scale);
 
@@ -105,7 +103,7 @@ int main(int argc, char *argv[])
         ImGui::End();
     });
 
-    context.Shutdown();
+    gContext.Shutdown();
 
     return 0;
 }

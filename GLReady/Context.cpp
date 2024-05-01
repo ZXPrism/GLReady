@@ -13,17 +13,27 @@
 
 namespace GLReady {
 
+    Context gContext;
+
     void Context::Init(const std::string &windowTitle, int windowWidth, int windowHeight)
     {
-        InitGLFW(windowTitle, windowWidth, windowHeight);
-        InitGLAD(windowWidth, windowHeight);
+        _windowWidth = windowWidth;
+        _windowHeight = windowHeight;
+
+        InitGLFW(windowTitle);
+        InitGLAD();
         InitCallbacks();
         InitImGui();
 
-        RegisterOnWindowSizeFunc([](int width, int height) { glViewport(0, 0, width, height); });
+        RegisterOnWindowSizeFunc([&](int width, int height) {
+            glViewport(0, 0, width, height);
+
+            _windowWidth = width;
+            _windowHeight = height;
+        });
     }
 
-    void Context::InitGLFW(const std::string &windowTitle, int windowWidth, int windowHeight)
+    void Context::InitGLFW(const std::string &windowTitle)
     {
         glfwInit();
         glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
@@ -31,19 +41,20 @@ namespace GLReady {
         glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
         glfwWindowHint(GLFW_SAMPLES, 4);
         _windowHandle =
-            glfwCreateWindow(windowWidth, windowHeight, windowTitle.c_str(), nullptr, nullptr);
+            glfwCreateWindow(_windowWidth, _windowHeight, windowTitle.c_str(), nullptr, nullptr);
         glfwMakeContextCurrent(_windowHandle);
+
         auto vidmode = glfwGetVideoMode(glfwGetPrimaryMonitor());
-        glfwSetWindowPos(_windowHandle, (vidmode->width - windowWidth) / 2,
-                         (vidmode->height - windowHeight) / 2);
+        glfwSetWindowPos(_windowHandle, (vidmode->width - _windowWidth) / 2,
+                         (vidmode->height - _windowHeight) / 2);
     }
 
-    void Context::InitGLAD(int windowWidth, int windowHeight)
+    void Context::InitGLAD()
     {
         gladLoadGL();
         glEnable(GL_MULTISAMPLE);
         glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
-        glViewport(0, 0, windowWidth, windowHeight);
+        glViewport(0, 0, _windowWidth, _windowHeight);
         _clearMask |= GL_COLOR_BUFFER_BIT;
     }
 
@@ -126,6 +137,7 @@ namespace GLReady {
 
             auto t2 = ch::steady_clock::now();
             dt = ch::duration_cast<ch::microseconds>(t2 - t1).count() / 1000000.0;
+            t1 = t2;
         }
     }
 
@@ -153,6 +165,16 @@ namespace GLReady {
     GLFWwindow *Context::GetWindowHandle()
     {
         return _windowHandle;
+    }
+
+    int Context::GetWindowWidth() const
+    {
+        return _windowWidth;
+    }
+
+    int Context::GetWindowHeight() const
+    {
+        return _windowHeight;
     }
 
     void Context::SetClearColor(float r, float g, float b)

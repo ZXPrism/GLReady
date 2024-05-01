@@ -8,6 +8,8 @@ See `demo` folder for details.
 
 ### TODO
 - [X] More callbacks (mouse, keyboard, etc.)
-- [ ] Camera
+- [X] Camera
+  - [X] move
+  - [X] drag
 - [ ] UI
 - [ ] Textures

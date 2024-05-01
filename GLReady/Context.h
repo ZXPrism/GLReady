@@ -24,6 +24,8 @@ namespace GLReady {
         void EnableDepthTest();
 
         GLFWwindow *GetWindowHandle();
+        int GetWindowWidth() const;
+        int GetWindowHeight() const;
 
         // callbacks
         using OnCursorPosFunc = std::function<void(double, double)>;
@@ -45,13 +47,14 @@ namespace GLReady {
         void OnWindowSize(int width, int height);
 
     private:
-        void InitGLFW(const std::string &windowTitle, int windowWidth, int windowHeight);
-        void InitGLAD(int windowWidth, int windowHeight);
+        void InitGLFW(const std::string &windowTitle);
+        void InitGLAD();
         void InitImGui();
         void InitCallbacks();
 
     private:
         GLFWwindow *_windowHandle;
+        int _windowWidth, _windowHeight;
         int _clearMask = 0;
 
         std::vector<OnCursorPosFunc> _onCursorPosVec;
@@ -60,5 +63,7 @@ namespace GLReady {
         std::vector<OnScrollFunc> _onScrollVec;
         std::vector<OnWindowSizeFunc> _onWindowSizeVec;
     };
+
+    extern Context gContext;
 
 } // namespace GLReady
